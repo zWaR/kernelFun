@@ -1,0 +1,32 @@
+#DEBUG = y
+
+ifeq ($(DEBUG),y)
+  DEBFLAGS = -O -g -DSCULL_DEBUG
+else
+  DEBFLAGS = -O2
+endif
+
+cflags-y += $(DEBFLAGS)
+cflags-y += -I$(LDDINC)
+
+ifneq ($(KERNELRELEASE),)
+  scull-objs := main.o
+
+  obj-m := scull.o
+else
+  KERNELDIR ?= /lib/modules/$(shell uname -r)/build
+  PWD       := $(shell pwd)
+
+modules:
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) LDDINC=$(PWD)/../include modules
+endif
+
+clean:
+	rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions *.symvers *.order
+
+depend .depend dep:
+	$(CC) $(cflags-y) -M *.c > .depend
+
+ifeq (.depend,$(wildcard .depend))
+include .depend
+endif
