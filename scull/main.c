@@ -31,6 +31,15 @@ module_param(scull_nr_devs, int, S_IRUGO);
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("zWaR");
 
+struct file_operations scull_fops = {
+    .owner = THIS_MODULE,
+    .llseek = scull_llseek,
+    .read = scull_read,
+    .write = scull_write,
+    .ioctl = scull_ioctl,
+    .open = scull_open,
+    .release = scull_release,
+};
 
 int scull_init_module(void)
 {
