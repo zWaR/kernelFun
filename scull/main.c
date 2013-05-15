@@ -15,6 +15,7 @@
 #include <linux/kdev_t.h> /* MKDEV */
 #include <linux/kernel.h> /* prinkt */
 #include <linux/moduleparam.h> /* module_param */
+#include <linux/cdev.h>
 
 #include "scull.h"
 
@@ -40,6 +41,22 @@ struct file_operations scull_fops = {
     .open = scull_open,
     .release = scull_release,
 };
+
+struct scull_dev *scull_devices;
+
+static void scull_setup_cdev(struct scull_dev *dev, int index)
+{
+    int err;
+    dev_t devno = MKDEV(scull_major, scull_minor+index);
+    
+    cdev_init(&dev->cdev, &scull_fops);
+    dev->cdev.owner = THIS_MODULE;
+    dev->cdev.ops = &scull_fops;
+    err = cdev_add(&dev->cdev,devno,1);
+    
+    if (err)
+        printk(KERN_NOTICE "Error %d adding scull%d", err, index);
+}
 
 int scull_init_module(void)
 {

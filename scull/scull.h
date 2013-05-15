@@ -19,6 +19,16 @@
 #define SCULL_NR_DEVS 4
 #endif
 
+struct scull_dev {
+    struct scull_qset *data;    /* Pointer to first quantum set */
+    int quantum;                /* the current quantum size */
+    int qset;                   /* the current array size */
+    unsigned long size;         /* ammount of data stored here */
+    unsigned int access_key;    /* used by sculluid and scullpriv */
+    struct semaphore sem;       /* mutual exclusion semaphore */
+    struct cdev cdev;           /* char device structure */
+};
+
 loff_t  scull_llseek    (struct file*, loff_t, int);
 ssize_t scull_read      (struct file*, char __user*, size_t, loff_t*);
 ssize_t scull_write     (struct file*, const char __user *, size_t, loff_t*);
