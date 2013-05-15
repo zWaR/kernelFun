@@ -15,7 +15,7 @@
 #include <linux/kdev_t.h> /* MKDEV */
 #include <linux/kernel.h> /* prinkt */
 #include <linux/moduleparam.h> /* module_param */
-#include <linux/cdev.h>
+#include <linux/cdev.h> /* char device registration */
 
 #include "scull.h"
 
@@ -56,6 +56,20 @@ static void scull_setup_cdev(struct scull_dev *dev, int index)
     
     if (err)
         printk(KERN_NOTICE "Error %d adding scull%d", err, index);
+}
+
+int scull_open (struct inode *inode, struct file *filp)
+{
+    struct scull_dev *dev;
+    
+    dev = container_of (inode->i_cdev, struct scull_dev, cdev);
+    filp->private_data = dev; /* for other methods */
+    
+    if ((filp->f_flags & O_ACCMODE) == O_WRONLY) {
+        scull_trim(dev);
+    }
+    
+    return 0;
 }
 
 int scull_init_module(void)
