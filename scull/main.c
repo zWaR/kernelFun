@@ -16,6 +16,7 @@
 #include <linux/kernel.h> /* prinkt */
 #include <linux/moduleparam.h> /* module_param */
 #include <linux/cdev.h> /* char device registration */
+#include <linux/slab.h> /* kfree and kmalloc */
 
 #include "scull.h"
 
@@ -44,6 +45,7 @@ struct file_operations scull_fops = {
 
 struct scull_dev *scull_devices;
 
+//device registration
 static void scull_setup_cdev(struct scull_dev *dev, int index)
 {
     int err;
@@ -58,6 +60,7 @@ static void scull_setup_cdev(struct scull_dev *dev, int index)
         printk(KERN_NOTICE "Error %d adding scull%d", err, index);
 }
 
+//open method
 int scull_open (struct inode *inode, struct file *filp)
 {
     struct scull_dev *dev;
@@ -69,6 +72,37 @@ int scull_open (struct inode *inode, struct file *filp)
         scull_trim(dev);
     }
     
+    return 0;
+}
+
+//relase method
+int scull_release (struct inode *inode, struct file *filp)
+{
+    return 0;
+}
+
+int scull_trim(struct scull_dev *dev)
+{
+    struct scull_qset *next, *dtptr;
+    int qset = dev->qset;
+    int i;
+    
+    for (dtptr = dev->data; dtptr; dtptr = next)
+    {
+        if (dtptr->data)
+        {
+            for (i = 0; i < qset; i++)
+                kfree(dtptr->data[i]);
+            kfree(dtptr->data);
+            dtptr->data = NULL;
+        }
+        next = dtptr->next;
+        kfree(dtptr);
+    }
+    dev->size = 0;
+    dev->qset = scull_qset;
+    dev->quantum = scull_quantum;
+    dev->data = NULL;
     return 0;
 }
 
