@@ -17,6 +17,7 @@
 #include <linux/moduleparam.h> /* module_param */
 #include <linux/cdev.h> /* char device registration */
 #include <linux/slab.h> /* kfree and kmalloc */
+#include <asm/uaccess.h> /* copy_to_user and copy_from_user */
 
 #include "scull.h"
 
@@ -116,7 +117,7 @@ ssize_t scull_read(struct file *filp, char __user *buf, size_t count, loff_t *f_
     int item, s_pos, q_pos, rest;
     ssize_t retval = 0;
     
-    if (down_interruptable(&dev->sem))
+    if (down_interruptible(&dev->sem))
         return -ERESTARTSYS;
     if (*f_pos >= dev->size)
         goto out;
