@@ -81,6 +81,7 @@ int scull_release (struct inode *inode, struct file *filp)
     return 0;
 }
 
+//free scull data area (quantum and quantum set)
 int scull_trim(struct scull_dev *dev)
 {
     struct scull_qset *next, *dtptr;
@@ -104,6 +105,51 @@ int scull_trim(struct scull_dev *dev)
     dev->quantum = scull_quantum;
     dev->data = NULL;
     return 0;
+}
+
+ssize_t scull_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
+{
+    struct scull_dev *dev = filp->private_data;
+    struct scull_qset *dptr;  /* the first listitem */
+    int quantum = dev->quantum, qset = dev->qset;
+    int itemsize = quantum * qset;   /* how many bytes in the listitem */
+    int item, s_pos, q_pos, rest;
+    ssize_t retval = 0;
+    
+    if (down_interruptable(&dev->sem))
+        return -ERESTARTSYS;
+    if (*f_pos >= dev->size)
+        goto out;
+    if (*f_pos + count > dev->size)
+        count = dev->size - *f_pos;
+    
+    /* find listitem, qset index, and offset in the quantum */
+    item = (long)*f_pos / itemsize;
+    rest = (long)*f_pos % itemsize;
+    s_pos = rest / quantum;
+    q_pos = rest % quantum;
+    
+    /* follow the list up to the right position (defined elsewhere) */
+    dptr = scull_follow(dev, item);
+    
+    if (dptr == NULL || !dptr->data || !dptr->data[s_pos])
+        goto out; /* don't fill holes */
+    
+    /* read only up tp the end of this quantum */
+    if (count > quantum - q_pos)
+        count = quantum - q_pos;
+    
+    if (copy_to_user(buf, dptr->data[s_pos] + q_pos, count))
+    {
+        retval = -EFAULT;
+        goto out;
+    }
+    *f_pos += count;
+    retval = count;
+    
+out:
+    up(&dev->sem);
+    return retval;
 }
 
 int scull_init_module(void)
