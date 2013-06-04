@@ -25,21 +25,25 @@
 int scull_major = SCULL_MAJOR;
 int scull_minor = 0;
 int scull_nr_devs = SCULL_NR_DEVS;
+int scull_quantum = SCULL_QUANTUM;
+int scull_qset = SCULL_QSET;
 
 
-module_param(scull_major, int, S_IRUGO);
-module_param(scull_minor, int, S_IRUGO);
-module_param(scull_nr_devs, int, S_IRUGO);
+//module_param(scull_major, int, S_IRUGO);
+//module_param(scull_minor, int, S_IRUGO);
+//module_param(scull_nr_devs, int, S_IRUGO);
+//module_param(scull_quantum, int , S_IRUGO);
+//module_param(scull_qset, int, S_IRUGO);
 
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("zWaR");
 
 struct file_operations scull_fops = {
     .owner = THIS_MODULE,
-    .llseek = scull_llseek,
+//    .llseek = scull_llseek,
     .read = scull_read,
     .write = scull_write,
-    .ioctl = scull_ioctl,
+//    .ioctl = scull_ioctl,
     .open = scull_open,
     .release = scull_release,
 };
@@ -106,6 +110,35 @@ int scull_trim(struct scull_dev *dev)
     dev->quantum = scull_quantum;
     dev->data = NULL;
     return 0;
+}
+
+/*
+ * Follow the list
+ */
+struct scull_qset *scull_follow(struct scull_dev *dev, int n)
+{
+	struct scull_qset *qs = dev->data;
+    
+    /* Allocate first qset explicitly if need be */
+	if (! qs) {
+		qs = dev->data = kmalloc(sizeof(struct scull_qset), GFP_KERNEL);
+		if (qs == NULL)
+			return NULL;  /* Never mind */
+		memset(qs, 0, sizeof(struct scull_qset));
+	}
+    
+	/* Then follow the list */
+	while (n--) {
+		if (!qs->next) {
+			qs->next = kmalloc(sizeof(struct scull_qset), GFP_KERNEL);
+			if (qs->next == NULL)
+				return NULL;  /* Never mind */
+			memset(qs->next, 0, sizeof(struct scull_qset));
+		}
+		qs = qs->next;
+		continue;
+	}
+	return qs;
 }
 
 ssize_t scull_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
