@@ -29,11 +29,11 @@ int scull_quantum = SCULL_QUANTUM;
 int scull_qset = SCULL_QSET;
 
 
-//module_param(scull_major, int, S_IRUGO);
-//module_param(scull_minor, int, S_IRUGO);
-//module_param(scull_nr_devs, int, S_IRUGO);
-//module_param(scull_quantum, int , S_IRUGO);
-//module_param(scull_qset, int, S_IRUGO);
+module_param(scull_major, int, S_IRUGO);
+module_param(scull_minor, int, S_IRUGO);
+module_param(scull_nr_devs, int, S_IRUGO);
+module_param(scull_quantum, int , S_IRUGO);
+module_param(scull_qset, int, S_IRUGO);
 
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("zWaR");
@@ -89,21 +89,21 @@ int scull_release (struct inode *inode, struct file *filp)
 //free scull data area (quantum and quantum set)
 int scull_trim(struct scull_dev *dev)
 {
-    struct scull_qset *next, *dtptr;
+    struct scull_qset *next, *dptr;
     int qset = dev->qset;
     int i;
     
-    for (dtptr = dev->data; dtptr; dtptr = next)
+    for (dptr = dev->data; dptr; dptr = next)
     {
-        if (dtptr->data)
+        if (dptr->data)
         {
             for (i = 0; i < qset; i++)
-                kfree(dtptr->data[i]);
-            kfree(dtptr->data);
-            dtptr->data = NULL;
+                kfree(dptr->data[i]);
+            kfree(dptr->data);
+            dptr->data = NULL;
         }
-        next = dtptr->next;
-        kfree(dtptr);
+        next = dptr->next;
+        kfree(dptr);
     }
     dev->size = 0;
     dev->qset = scull_qset;
@@ -178,6 +178,7 @@ ssize_t scull_read(struct file *filp, char __user *buf, size_t count, loff_t *f_
         retval = -EFAULT;
         goto out;
     }
+    printk(KERN_WARNING "Scull: read some data\n");
     *f_pos += count;
     retval = count;
     
@@ -230,6 +231,7 @@ ssize_t scull_write(struct file *filp, const char __user *buf, size_t count, lof
         retval = -EFAULT;
         goto out;
     }
+    //printk(KERN_WARNING "Scull: wrote a bunch of data: %s\n", buf);
     *f_pos += count;
     retval = count;
     
@@ -242,9 +244,30 @@ out:
     return retval;
 }
 
+void scull_cleanup_module(void)
+{
+    int i;
+    dev_t devno = MKDEV(scull_major, scull_minor);
+    
+    if (scull_devices)
+    {
+        for (i = 0; i < scull_nr_devs; i++)
+        {
+            scull_trim(scull_devices + i);
+            cdev_del(&scull_devices[i].cdev);
+        }
+        kfree(scull_devices);
+    }
+    
+    unregister_chrdev_region(devno, scull_nr_devs);
+    
+    //scull_p_cleanup();
+    //scull_access_cleanup();
+}
+
 int scull_init_module(void)
 {
-    int result;
+    int result,i ;
     dev_t dev = 0;
     
     if (scull_major)
@@ -264,7 +287,36 @@ int scull_init_module(void)
         return result;
     }
     
+    /*
+     * allocate the devices
+     */
+    
+    scull_devices = kmalloc(scull_nr_devs * sizeof(struct scull_dev), GFP_KERNEL);
+    if (!scull_devices)
+    {
+        result = -ENOMEM;
+        goto fail;
+    }
+    memset(scull_devices, 0, scull_nr_devs * sizeof(struct scull_dev));
+    
+    for (i = 0; i < scull_nr_devs; i++)
+    {
+        scull_devices[i].quantum = scull_quantum;
+        scull_devices[i].qset = scull_qset;
+        init_MUTEX(&scull_devices[i].sem);
+        scull_setup_cdev(&scull_devices[i], i);
+    }
+    
+    //dev = MKDEV(scull_major, scull_minor + scull_nr_devs);
+    //dev += scull_p_init(dev);
+    //dev += scull_access_init(dev);
+    
     return 0;
+    
+fail:
+    scull_cleanup_module();
+    return result;
 }
 
 module_init(scull_init_module);
+module_exit(scull_cleanup_module);

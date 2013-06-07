@@ -12,7 +12,7 @@
 #define LinuxKernel_scull_h
 
 #ifndef SCULL_MAJOR
-#define SCULL_MAJOR 0
+#define SCULL_MAJOR 80
 #endif
 
 #ifndef SCULL_NR_DEVS
