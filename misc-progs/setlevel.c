@@ -6,8 +6,8 @@
 
 #define __LIBRARY__
 #include <linux/unistd.h>
+#include <sys/klog.h>
 
-_syscall3(int, syslog, int, type, char *, bufp, int, len);
 
 int main(int argc, char **argv)
 {
@@ -23,7 +23,7 @@ int main(int argc, char **argv)
         exit(1);
     }
     
-    if (syslog(8, NULL, level) < 0)
+    if (klogctl(8, NULL, level) < 0)
     {
         fprintf(stderr, "%s: syslog(setlevel): %s\n", argv[0], strerror(errno));
         exit(1);
