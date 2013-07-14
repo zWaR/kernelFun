@@ -11,6 +11,20 @@
 #ifndef LinuxKernel_scull_h
 #define LinuxKernel_scull_h
 
+#undef PDEBUG
+#ifdef SCULL_DEBUG
+#   ifdef __KERNEL__
+#     define PDEBUG(fmt, args...) printk(KERN_DEBUG "scull: " fmt, ## args)
+#   else
+#     define PDEBUG(fmt, args...) fprintf(stderr, fmt, ## args)
+#   endif
+#else
+#   define PDEBUG(fmt, args...)
+#endif
+
+#undef PDEBUG
+#define PDEBUG(fmt, args...)
+
 #ifndef SCULL_MAJOR
 #define SCULL_MAJOR 80
 #endif

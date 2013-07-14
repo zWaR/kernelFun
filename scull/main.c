@@ -19,6 +19,7 @@
 #include <linux/cdev.h> /* char device registration */
 #include <linux/slab.h> /* kfree and kmalloc */
 #include <asm/uaccess.h> /* copy_to_user and copy_from_user */
+#include <linux/proc_fs.h> /* used to create files in /proc */
 
 #include "scull.h"
 
@@ -112,6 +113,57 @@ int scull_trim(struct scull_dev *dev)
         dev->data = NULL;
         return 0;
 }
+
+#ifdef SCULL_DEBUG
+/*
+ * The proc filesystem function to read and entry
+ */
+
+int scull_read_procmem(char *buf, char **start, off_t offset,
+                       int count, int *eof, void *data)
+{
+        int i, j, len = 0;
+        int limit = count - 80;
+        
+        for (i = 0; i < scull_nr_devs && len <= limit; i++) {
+                struct scull_dev *d = &scull_devices[i];
+                struct scull_qset *qs = d->data;
+                if (down_interruptible(&d->sem))
+                        return -ERESTARTSYS;
+                
+                len += sprintf(buf+len, "\nDevice %i: qset %i, q %i, sz %li\n",
+                               i, d->qset, d->quantum, d->size);
+                
+                for (; qs && len <= limit; qs = qs->next) {
+                        len +=  sprintf(buf+len, " item at %p, qset at %p\n",
+                                        qs, qs->data);
+                        if (qs->data && !qs->next) {
+                                if (qs->data[j])
+                                        len += sprintf(buf+len,
+                                                       "    % 4i: %8p\n",
+                                                       j, qs->data[j]);)
+                        }
+                }
+                up(&scull_devices[i].sem);
+        }
+        *eof = 1;
+        return len;
+}
+
+static void scull_create_proc(void)
+{
+        create_proc_read_entry("scullmem", 0 /* default mode */,
+                               NULL /* parent dir */, scull_read_procmem,
+                               NULL /* client data */);
+}
+
+static void scull_remove_proc(void)
+{
+        remove_proc_entry("scullmem", NULL /* parent dir */);
+}
+
+
+#endif /* SCULL_DEBUG */
 
 /*
  * Follow the list
