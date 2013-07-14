@@ -319,6 +319,10 @@ void scull_cleanup_module(void)
                 }
                 kfree(scull_devices);
         }
+        
+#ifdef SCULL_DEBUG
+        scull_remove_proc();
+#endif
     
         unregister_chrdev_region(devno, scull_nr_devs);
     
@@ -373,6 +377,10 @@ int scull_init_module(void)
         //dev = MKDEV(scull_major, scull_minor + scull_nr_devs);
         //dev += scull_p_init(dev);
         //dev += scull_access_init(dev);
+        
+#ifdef SCULL_DEBUG
+        scull_create_proc();
+#endif
     
         return 0;
     
