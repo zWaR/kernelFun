@@ -25,7 +25,7 @@ clean:
 	rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions *.symvers *.order
 
 depend .depend dep:
-	$(CC) $(CFLAGS-Y) -MG -MM -M *.c > .depend
+	$(CC) $(EXTRA_CFLAGS) -MG -MM -M *.c > .depend
 
 ifeq (.depend,$(wildcard .depend))
 include .depend
