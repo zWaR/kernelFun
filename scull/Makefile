@@ -6,8 +6,8 @@ else
   DEBFLAGS = -O2
 endif
 
-cflags-y += $(DEBFLAGS)
-cflags-y += -I$(LDDINC)
+EXTRA_CFLAGS += $(DEBFLAGS)
+EXTRA_CFLAGS += -I$(LDDINC)
 
 ifneq ($(KERNELRELEASE),)
   scull-objs := main.o
@@ -25,7 +25,7 @@ clean:
 	rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions *.symvers *.order
 
 depend .depend dep:
-	$(CC) $(cflags-y) -MG -MM -M *.c > .depend
+	$(CC) $(CFLAGS-Y) -MG -MM -M *.c > .depend
 
 ifeq (.depend,$(wildcard .depend))
 include .depend

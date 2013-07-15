@@ -137,12 +137,13 @@ int scull_read_procmem(char *buf, char **start, off_t offset,
                 for (; qs && len <= limit; qs = qs->next) {
                         len +=  sprintf(buf+len, " item at %p, qset at %p\n",
                                         qs, qs->data);
-                        if (qs->data && !qs->next) {
-                                if (qs->data[j])
-                                        len += sprintf(buf+len,
-                                                       "    % 4i: %8p\n",
-                                                       j, qs->data[j]);)
-                        }
+                        if (qs->data && !qs->next)                                
+                                for (j=0; j < d->qset; j++) {
+                                        if (qs->data[j])
+                                                len += sprintf(buf+len,
+                                                               "    % 4i: %8p\n",
+                                                               j, qs->data[j]);
+                                }
                 }
                 up(&scull_devices[i].sem);
         }
