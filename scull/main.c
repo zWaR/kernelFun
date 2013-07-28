@@ -20,6 +20,7 @@
 #include <linux/slab.h> /* kfree and kmalloc */
 #include <asm/uaccess.h> /* copy_to_user and copy_from_user */
 #include <linux/proc_fs.h> /* used to create files in /proc */
+#include <linux/seq_file.h> /* needed for seq_file */
 
 #include "scull.h"
 
@@ -151,11 +152,82 @@ int scull_read_procmem(char *buf, char **start, off_t offset,
         return len;
 }
 
+static void *scull_seq_start(struct seq_file *s, loff_t *pos)
+{
+        if (*pos >= scull_nr_devs)
+                return NULL;
+        return scull_devices + *pos;
+}
+
+static void *scull_seq_next(struct seq_file *s, void *v, loff_t *pos)
+{
+        (*pos)++;
+        if (*pos >= scull_nr_devs)
+                return NULL;
+        
+        return scull_devices + *pos;
+}
+
+static void scull_seq_stop(struct seq_file *s, void *v)
+{
+        /* Nothing to do for us */
+}
+
+static int scull_seq_show(struct seq_file *s, void *v)
+{
+        struct scull_dev *dev = (struct scull_dev *) v;
+        struct scull_qset *d;
+        int i;
+        
+        if (down_interruptible(&dev->sem))
+                return -ERESTARTSYS;
+        
+        seq_printf(s, "\nDevice %i: qset %i, q %i, sz %li\n",
+                   (int) (dev - scull_devices), dev->qset,
+                   dev->quantum, dev->size);
+        
+        for (d = dev->data; d; d = d->next) {
+                seq_printf(s, "item at %p, qset at %p\n", d, d->data);
+                if (d->data && !d->next)
+                        for (i=0; i < dev->qset; i++) {
+                                if (d->data[i])
+                                        seq_printf(s, "    % 4i: %8p\n",
+                                                   i, d->data[i]);
+                        }
+        }
+        up(&dev->sem);
+        return 0;
+}
+
+static struct seq_operations scull_seq_ops = {
+        .start  = scull_seq_start,
+        .next   = scull_seq_next,
+        .stop   = scull_seq_stop,
+        .show   = scull_seq_show,
+};
+
+static int scull_proc_open(struct inode *inode, struct file *file)
+{
+        return seq_open(file, &scull_seq_ops);
+}
+
+static struct file_operations scull_proc_ops = {
+        .owner          = THIS_MODULE,
+        .open           = scull_proc_open,
+        .read           = seq_read,
+        .llseek         = seq_lseek,
+        .release        = seq_release
+};
+
 static void scull_create_proc(void)
 {
+        struct proc_dir_entry *entry;
         create_proc_read_entry("scullmem", 0 /* default mode */,
                                NULL /* parent dir */, scull_read_procmem,
                                NULL /* client data */);
+        entry = create_proc_entry("scullseq", 0, NULL);
+        if (entry)
+                entry->proc_fops = &scull_proc_ops;
 }
 
 static void scull_remove_proc(void)
