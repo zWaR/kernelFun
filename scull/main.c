@@ -21,6 +21,10 @@
 #include <asm/uaccess.h> /* copy_to_user and copy_from_user */
 #include <linux/proc_fs.h> /* used to create files in /proc */
 #include <linux/seq_file.h> /* needed for seq_file */
+#include <linux/ioctl.h> /* needed for ioctl obviously */
+#include <asm/uaccess.h> /* needed for access_ok */
+#include <linux/capability.h> /* needed for capability */
+#include <linux/sched.h> /* needed for capable */
 
 #include "scull.h"
 
@@ -375,6 +379,111 @@ ssize_t scull_write(struct file *filp, const char __user *buf,
     
 out:
         up(&dev->sem);
+        return retval;
+}
+
+int scull_ioctl (struct inode *inode, struct file *filp,
+                 unsigned int cmd, unsigned long arg)
+{
+        int err = 0, tmp;
+        int retval = 0;
+        
+        if (_IOC_TYPE(cmd) != SCULL_IOC_MAGIC) return -ENOTTY;
+        if (_IOC_NR(cmd) > SCULL_IOC_MAXNR) return -ENOTTY;
+        
+        if (_IOC_TYPE(cmd) & _IOC_READ)
+                err = !access_ok(VERFIY_WRITE, (int __user *) arg, _IOC_SIZE(cmd));
+        if (_IOC_TYPE(cmd) & _IOC_WRITE)
+                err = !access_ok(VERIFY_READ, (int __user *) arg, _IOC_SIZE(cmd));
+        
+        if (err) return -EFAULT;
+        
+        switch (cmd)
+        {
+                case SCULL_IOCRESET:
+                        scull_quantum = SCULL_QUANTUM;
+                        scull_qset = SCULL_QSET;
+                        break;
+                        
+                case SCULL_IOCSQUANTUM:
+                        if ( !capable(CAP_SYS_ADMIN) )
+                                return -EPERM;
+                        retval = __get_user(scull_quantum, (int __user *) arg);
+                        break;
+                
+                case SCULL_IOCSQSET:
+                        if ( !capable(CAP_SYS_ADMIN) )
+                                return -EPERM;
+                        retval = __get_user(scull_qset, (int __user *) arg);
+                        break;
+                        
+                case SCULL_IOCTQUANTUM:
+                        if ( !capable(CAP_SYS_ADMIN) )
+                                return -EPERM;
+                        scull_quantum = arg;
+                        break;
+                        
+                case SCULL_IOCTQSET:
+                        if ( !capable(CAP_SYS_ADMIN) )
+                                return -EPERM;
+                        scull_qset = arg;
+                        break;
+                        
+                case SCULL_IOCGQUANTUM:
+                        retval = __put_user(scull_quantum, (int __user *) arg);
+                        break;
+                        
+                case SCULL_IOCGQSET:
+                        retval = __put_user(scull_qset, (int __user *) arg);
+                        break;
+                        
+                case SCULL_IOCQQUANTUM:
+                        return scull_quantum;
+                        
+                case SCULL_IOCQQSET:
+                        return scull_qset;
+                        
+                case SCULL_IOCXQUANTUM:
+                        if ( !capable(CAP_SYS_ADMIN) )
+                                return -EPERM;
+                        
+                        tmp = scull_quantum;
+                        retval = __get_user(scull_quantum, (int __user *) arg);
+                        if (retval == 0)
+                                retval = __put_user(tmp, (int __user *) arg);
+                        break;
+                        
+                case SCULL_IOCXQSET:
+                        if ( !capable(CAP_SYS_ADMIN) )
+                                return -EPERM;
+                        
+                        tmp =  scull_qset;
+                        retval = __get_user(scull_qset, (int __user *) arg);
+                        if (retval == 0)
+                                retval = __put_user(tmp, (int __user *) arg);
+                        break;
+                        
+                case SCULL_IOCHQUANTUM:
+                        if ( !capable(CAP_SYS_ADMIN) )
+                                return -EPERM;
+                        
+                        tmp = scull_quantum;
+                        scull_quantum = arg;
+                        return tmp;
+                        
+                case SCULL_IOCHQSET:
+                        if ( !capable(CAP_SYS_ADMIN) )
+                                return -EPERM;
+                        
+                        tmp = scull_qset;
+                        scull_qset = arg;
+                        return tmp;
+                        
+                default:
+                        return -ENOTTY;
+                        
+        }
+        
         return retval;
 }
 
