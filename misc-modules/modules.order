@@ -1,3 +1,4 @@
 kernel//root/kernelFun/myCode/misc-modules/hello.ko
 kernel//root/kernelFun/myCode/misc-modules/hellop.ko
 kernel//root/kernelFun/myCode/misc-modules/complete.ko
+kernel//root/kernelFun/myCode/misc-modules/sleepy.ko
